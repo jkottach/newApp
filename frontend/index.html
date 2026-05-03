@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Users</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Users</h1>
+      <p class="lede">Add a person and load everyone from the API.</p>
+
+      <form id="user-form" class="card" novalidate>
+        <div class="row">
+          <label>
+            First name
+            <input name="firstName" type="text" autocomplete="given-name" required maxlength="100" />
+          </label>
+          <label>
+            Last name
+            <input name="lastName" type="text" autocomplete="family-name" required maxlength="100" />
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit">Save</button>
+          <button type="button" id="refresh" class="secondary">Refresh list</button>
+        </div>
+        <p id="form-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <section class="card" aria-labelledby="list-heading">
+        <div class="list-head">
+          <h2 id="list-heading">All users</h2>
+          <span id="count" class="badge"></span>
+        </div>
+        <div id="list-error" class="status error" role="alert" hidden></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">First name</th>
+                <th scope="col">Last name</th>
+                <th scope="col">Created</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="env-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

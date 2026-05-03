@@ -1,0 +1,32 @@
+# Deploy static frontend to Azure Static Web Apps.
+# Repo secrets: AZURE_STATIC_WEB_APPS_API_TOKEN (from SWA portal → Manage deployment token)
+#               BACKEND_PUBLIC_URL (e.g. https://your-api.azurewebsites.net — no trailing slash)
+name: Deploy frontend (Azure Static Web Apps)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/azure-frontend.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Point frontend at API
+        run: |
+          echo "window.__API_BASE__='${{ secrets.BACKEND_PUBLIC_URL }}';" > frontend/env-config.js
+
+      - name: Build and deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: /frontend
+          output_location: "."
+          skip_app_build: true
