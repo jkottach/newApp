@@ -1,17 +1,60 @@
 (function () {
-  const apiBase = (typeof window !== "undefined" && window.__API_BASE__) || "";
+  let apiBase =
+    typeof window !== "undefined" && window.__API_BASE__ !== undefined && window.__API_BASE__ !== null
+      ? String(window.__API_BASE__).trim()
+      : "";
+  if (!apiBase && typeof location !== "undefined") {
+    const h = location.hostname;
+    const p = location.port;
+    if ((h === "localhost" || h === "127.0.0.1") && p === "8080") {
+      apiBase = "http://localhost:3000";
+    }
+  }
 
   const form = document.getElementById("user-form");
-  const refreshBtn = document.getElementById("refresh");
   const formStatus = document.getElementById("form-status");
-  const rowsEl = document.getElementById("rows");
+  const listEl = document.getElementById("user-list");
   const listError = document.getElementById("list-error");
   const countEl = document.getElementById("count");
+  const attendeePanel = document.getElementById("attendee-counts");
+  const attendingInputs = form.querySelectorAll('input[name="isAttending"]');
 
   function apiUrl(path) {
     const base = apiBase.replace(/\/$/, "");
     return `${base}${path}`;
   }
+
+  function displayName(u) {
+    const full = String(u.fullName ?? "").trim();
+    if (full) return full;
+    return `${String(u.firstName ?? "").trim()} ${String(u.lastName ?? "").trim()}`.trim();
+  }
+
+  function isAttendingValue(u) {
+    return u.isAttending === true || u.isAttending === 1;
+  }
+
+  function totalAttendees(u) {
+    return (
+      Number(u.attendeesAbove16 || 0) +
+      Number(u.attendeesAge6To16 || 0) +
+      Number(u.attendeesBelow6 || 0)
+    );
+  }
+
+  function updateAttendeePanel() {
+    const selected = form.querySelector('input[name="isAttending"]:checked');
+    const show = selected && selected.value === "yes";
+    attendeePanel.hidden = !show;
+    attendeePanel.querySelectorAll("input[type='number']").forEach((el) => {
+      el.required = show;
+      if (!show) el.value = "0";
+    });
+  }
+
+  attendingInputs.forEach((el) => {
+    el.addEventListener("change", updateAttendeePanel);
+  });
 
   async function loadUsers() {
     listError.hidden = true;
@@ -21,36 +64,58 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       renderRows(Array.isArray(data) ? data : []);
-      countEl.textContent = `${data.length} total`;
     } catch (e) {
       listError.hidden = false;
-      listError.textContent = "Could not load users. Check API URL and CORS settings.";
+      const msg = e && e.message ? e.message : String(e);
+      listError.textContent = `Could not load responses (${msg}). Check API URL, CORS, and the API terminal for errors.`;
       console.error(e);
     }
   }
 
+  function initialsFromName(name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  function attendanceSummary(u) {
+    if (!isAttendingValue(u)) return "Not attending";
+    const total = totalAttendees(u);
+    const parts = [];
+    if (Number(u.attendeesAbove16) > 0) parts.push(`${u.attendeesAbove16} above 16`);
+    if (Number(u.attendeesAge6To16) > 0) parts.push(`${u.attendeesAge6To16} ages 6–16`);
+    if (Number(u.attendeesBelow6) > 0) parts.push(`${u.attendeesBelow6} below 6`);
+    return `Attending · ${total} total (${parts.join(", ") || "counts not set"})`;
+  }
+
   function renderRows(users) {
-    rowsEl.innerHTML = "";
+    listEl.innerHTML = "";
+    countEl.textContent = String(users.length);
     if (!users.length) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 4;
-      td.className = "empty";
-      td.textContent = "No users yet.";
-      tr.appendChild(td);
-      rowsEl.appendChild(tr);
-      countEl.textContent = "0 total";
+      const li = document.createElement("li");
+      li.className = "user-list-empty";
+      li.textContent = "No responses yet. Be the first to submit.";
+      listEl.appendChild(li);
       return;
     }
     for (const u of users) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(String(u.id))}</td>
-        <td>${escapeHtml(String(u.firstName ?? ""))}</td>
-        <td>${escapeHtml(String(u.lastName ?? ""))}</td>
-        <td>${escapeHtml(formatDate(u.createdAt))}</td>
+      const name = displayName(u);
+      const li = document.createElement("li");
+      li.className = "user-card";
+      const attending = isAttendingValue(u);
+      li.innerHTML = `
+        <span class="user-avatar" aria-hidden="true">${escapeHtml(initialsFromName(name))}</span>
+        <div class="user-card-body">
+          <p class="user-card-name">${escapeHtml(name)}</p>
+          <p class="user-card-meta">
+            <span class="pill ${attending ? "pill-yes" : "pill-no"}">${attending ? "Yes" : "No"}</span>
+            · ${escapeHtml(attendanceSummary(u))}
+          </p>
+          <p class="user-card-date">#${escapeHtml(String(u.id))} · ${escapeHtml(formatDate(u.createdAt))}</p>
+        </div>
       `;
-      rowsEl.appendChild(tr);
+      listEl.appendChild(li);
     }
   }
 
@@ -69,42 +134,79 @@
     return d.toLocaleString();
   }
 
+  function parseCount(fd, name) {
+    const raw = fd.get(name);
+    const n = raw === "" || raw === null ? 0 : Number(raw);
+    if (!Number.isInteger(n) || n < 0) return null;
+    return n;
+  }
+
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     formStatus.textContent = "";
     const fd = new FormData(form);
-    const firstName = String(fd.get("firstName") || "").trim();
-    const lastName = String(fd.get("lastName") || "").trim();
-    if (!firstName || !lastName) {
-      formStatus.textContent = "Please enter first and last name.";
+    const fullName = String(fd.get("fullName") || "").trim();
+    const attendingChoice = fd.get("isAttending");
+
+    if (!fullName) {
+      formStatus.textContent = "Please enter your name.";
       return;
     }
+    if (attendingChoice !== "yes" && attendingChoice !== "no") {
+      formStatus.textContent = "Please select Yes or No for attending.";
+      return;
+    }
+
+    const isAttending = attendingChoice === "yes";
+    const payload = { fullName, isAttending };
+
+    if (isAttending) {
+      const attendeesAbove16 = parseCount(fd, "attendeesAbove16");
+      const attendeesAge6To16 = parseCount(fd, "attendeesAge6To16");
+      const attendeesBelow6 = parseCount(fd, "attendeesBelow6");
+      if (
+        attendeesAbove16 === null ||
+        attendeesAge6To16 === null ||
+        attendeesBelow6 === null
+      ) {
+        formStatus.textContent = "Attendee counts must be whole numbers 0 or greater.";
+        return;
+      }
+      const total = attendeesAbove16 + attendeesAge6To16 + attendeesBelow6;
+      if (total < 1) {
+        formStatus.textContent = "Enter at least one attendee in your group.";
+        return;
+      }
+      payload.attendeesAbove16 = attendeesAbove16;
+      payload.attendeesAge6To16 = attendeesAge6To16;
+      payload.attendeesBelow6 = attendeesBelow6;
+    }
+
     try {
       const res = await fetch(apiUrl("/api/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName }),
+        body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        formStatus.textContent = body.error || `Save failed (${res.status})`;
+        formStatus.textContent = body.error || `Submit failed (${res.status})`;
         return;
       }
       form.reset();
-      formStatus.textContent = "Saved.";
+      updateAttendeePanel();
+      formStatus.textContent = "Submitted. Thank you!";
       await loadUsers();
     } catch (e) {
-      formStatus.textContent = "Network error. Is the API running and CORS configured?";
+      const msg = e && e.message ? e.message : String(e);
+      formStatus.textContent = `Request failed (${msg}). Is the API running on ${apiUrl("") || "(same origin)"}?`;
       console.error(e);
     }
-  });
-
-  refreshBtn.addEventListener("click", () => {
-    loadUsers();
   });
 
   if (!apiBase) {
     formStatus.textContent = "Set window.__API_BASE__ in env-config.js (or deploy with CI).";
   }
+  updateAttendeePanel();
   loadUsers();
 })();

@@ -2,54 +2,87 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Users</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Kanhans Family Meet 26</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="wrap">
-      <h1>Users</h1>
-      <p class="lede">Add a person and load everyone from the API.</p>
+    <header class="banner" role="banner">
+      <div class="banner-pattern" aria-hidden="true"></div>
+      <div class="banner-inner">
+        <p class="banner-eyebrow">Family gathering</p>
+        <h1 class="banner-title">Kanhans Family Meet 26</h1>
+      </div>
+    </header>
 
-      <form id="user-form" class="card" novalidate>
-        <div class="row">
-          <label>
-            First name
-            <input name="firstName" type="text" autocomplete="given-name" required maxlength="100" />
+    <main class="app">
+      <section class="card" aria-labelledby="register-heading">
+        <h2 id="register-heading" class="section-title">RSVP</h2>
+        <p class="section-lede">Register for the family meet.</p>
+
+        <form id="user-form" novalidate>
+          <label class="field">
+            <span class="field-label">Your name</span>
+            <input name="fullName" type="text" autocomplete="name" required maxlength="200" placeholder="Full name" />
           </label>
-          <label>
-            Last name
-            <input name="lastName" type="text" autocomplete="family-name" required maxlength="100" />
-          </label>
-        </div>
-        <div class="actions">
-          <button type="submit">Save</button>
-          <button type="button" id="refresh" class="secondary">Refresh list</button>
-        </div>
-        <p id="form-status" class="status" role="status" aria-live="polite"></p>
-      </form>
+
+          <fieldset class="field fieldset">
+            <legend class="field-label">Are you attending the event?</legend>
+            <div class="choice-row" role="radiogroup" aria-label="Attending the event">
+              <label class="choice">
+                <input type="radio" name="isAttending" value="yes" required />
+                <span>Yes</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="isAttending" value="no" required />
+                <span>No</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div id="attendee-counts" class="attendee-panel" hidden>
+            <p class="panel-title">How many will attend?</p>
+            <p class="panel-hint">Include everyone in your group (including yourself).</p>
+            <label class="field">
+              <span class="field-label">Above 16 years</span>
+              <input name="attendeesAbove16" type="number" min="0" step="1" inputmode="numeric" value="0" />
+            </label>
+            <label class="field">
+              <span class="field-label">Between 6 and 16 years</span>
+              <input name="attendeesAge6To16" type="number" min="0" step="1" inputmode="numeric" value="0" />
+            </label>
+            <label class="field">
+              <span class="field-label">Below 6 years</span>
+              <input name="attendeesBelow6" type="number" min="0" step="1" inputmode="numeric" value="0" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn btn-primary">Submit</button>
+          </div>
+          <p id="form-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
 
       <section class="card" aria-labelledby="list-heading">
         <div class="list-head">
-          <h2 id="list-heading">All users</h2>
-          <span id="count" class="badge"></span>
+          <div>
+            <h2 id="list-heading" class="section-title">Responses</h2>
+            <p class="section-lede">Everyone who has submitted an RSVP.</p>
+          </div>
+          <span id="count" class="badge" aria-live="polite"></span>
         </div>
         <div id="list-error" class="status error" role="alert" hidden></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">ID</th>
-                <th scope="col">First name</th>
-                <th scope="col">Last name</th>
-                <th scope="col">Created</th>
-              </tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
-        </div>
+        <ul id="user-list" class="user-list" aria-live="polite"></ul>
       </section>
     </main>
+
+    <footer class="app-footer">
+      <p>Kanhans Family Meet 26</p>
+    </footer>
+
     <script src="env-config.js"></script>
     <script src="app.js"></script>
   </body>

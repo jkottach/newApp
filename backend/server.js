@@ -28,6 +28,44 @@ function parseCorsOrigins() {
     .filter(Boolean);
 }
 
+function isLocalDevOrigin(origin) {
+  if (!origin) return false;
+  try {
+    const u = new URL(origin);
+    const h = u.hostname;
+    const p = u.protocol;
+    if (p !== "http:" && p !== "https:") return false;
+    return h === "localhost" || h === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+function buildCorsOptions() {
+  const configured = parseCorsOrigins();
+  const isProd = process.env.NODE_ENV === "production";
+
+  return {
+    origin(origin, cb) {
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      if (configured.includes(origin)) {
+        cb(null, true);
+        return;
+      }
+      if (!isProd && isLocalDevOrigin(origin)) {
+        cb(null, true);
+        return;
+      }
+      cb(null, false);
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  };
+}
+
 let poolPromise;
 
 async function getPool() {
@@ -48,25 +86,97 @@ async function ensureSchema(pool) {
     BEGIN
       CREATE TABLE dbo.Users (
         id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        firstName NVARCHAR(100) NOT NULL,
-        lastName NVARCHAR(100) NOT NULL,
+        firstName NVARCHAR(100) NOT NULL DEFAULT '',
+        lastName NVARCHAR(100) NOT NULL DEFAULT '',
+        fullName NVARCHAR(200) NULL,
+        isAttending BIT NOT NULL DEFAULT 0,
+        attendeesAbove16 INT NOT NULL DEFAULT 0,
+        attendeesAge6To16 INT NOT NULL DEFAULT 0,
+        attendeesBelow6 INT NOT NULL DEFAULT 0,
         createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
       );
     END
+
+    IF COL_LENGTH('dbo.Users', 'fullName') IS NULL
+      ALTER TABLE dbo.Users ADD fullName NVARCHAR(200) NULL;
+    IF COL_LENGTH('dbo.Users', 'isAttending') IS NULL
+      ALTER TABLE dbo.Users ADD isAttending BIT NOT NULL DEFAULT 0;
+    IF COL_LENGTH('dbo.Users', 'attendeesAbove16') IS NULL
+      ALTER TABLE dbo.Users ADD attendeesAbove16 INT NOT NULL DEFAULT 0;
+    IF COL_LENGTH('dbo.Users', 'attendeesAge6To16') IS NULL
+      ALTER TABLE dbo.Users ADD attendeesAge6To16 INT NOT NULL DEFAULT 0;
+    IF COL_LENGTH('dbo.Users', 'attendeesBelow6') IS NULL
+      ALTER TABLE dbo.Users ADD attendeesBelow6 INT NOT NULL DEFAULT 0;
   `);
 }
 
+function parseNonNegativeInt(value, fieldName) {
+  if (value === undefined || value === null || value === "") return 0;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(`${fieldName} must be a whole number 0 or greater`);
+  }
+  return n;
+}
+
+function parseRegistrationBody(body) {
+  const fullName = String(body?.fullName ?? "").trim();
+  if (!fullName) {
+    throw new Error("fullName is required");
+  }
+
+  const attendingRaw = body?.isAttending;
+  let isAttending;
+  if (attendingRaw === true || attendingRaw === "true" || attendingRaw === "yes") {
+    isAttending = true;
+  } else if (attendingRaw === false || attendingRaw === "false" || attendingRaw === "no") {
+    isAttending = false;
+  } else {
+    throw new Error("isAttending must be yes or no");
+  }
+
+  let attendeesAbove16 = 0;
+  let attendeesAge6To16 = 0;
+  let attendeesBelow6 = 0;
+
+  if (isAttending) {
+    attendeesAbove16 = parseNonNegativeInt(body?.attendeesAbove16, "attendeesAbove16");
+    attendeesAge6To16 = parseNonNegativeInt(body?.attendeesAge6To16, "attendeesAge6To16");
+    attendeesBelow6 = parseNonNegativeInt(body?.attendeesBelow6, "attendeesBelow6");
+    const total = attendeesAbove16 + attendeesAge6To16 + attendeesBelow6;
+    if (total < 1) {
+      throw new Error("Enter at least one attendee when attending");
+    }
+  }
+
+  return {
+    fullName,
+    isAttending,
+    attendeesAbove16,
+    attendeesAge6To16,
+    attendeesBelow6,
+  };
+}
+
+const USER_SELECT = `
+  SELECT
+    id,
+    fullName,
+    firstName,
+    lastName,
+    isAttending,
+    attendeesAbove16,
+    attendeesAge6To16,
+    attendeesBelow6,
+    createdAt
+  FROM dbo.Users
+  ORDER BY createdAt DESC
+`;
+
 async function main() {
   const app = express();
-  const origins = parseCorsOrigins();
 
-  app.use(
-    cors({
-      origin: origins.length ? origins : true,
-      methods: ["GET", "POST", "OPTIONS"],
-      allowedHeaders: ["Content-Type"],
-    })
-  );
+  app.use(cors(buildCorsOptions()));
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
@@ -77,11 +187,7 @@ async function main() {
     try {
       const pool = await getPool();
       await ensureSchema(pool);
-      const result = await pool.request().query(`
-        SELECT id, firstName, lastName, createdAt
-        FROM dbo.Users
-        ORDER BY id ASC
-      `);
+      const result = await pool.request().query(USER_SELECT);
       res.json(result.recordset);
     } catch (err) {
       console.error(err);
@@ -90,10 +196,11 @@ async function main() {
   });
 
   app.post("/api/users", async (req, res) => {
-    const firstName = String(req.body?.firstName ?? "").trim();
-    const lastName = String(req.body?.lastName ?? "").trim();
-    if (!firstName || !lastName) {
-      res.status(400).json({ error: "firstName and lastName are required" });
+    let data;
+    try {
+      data = parseRegistrationBody(req.body);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
       return;
     }
     try {
@@ -101,17 +208,37 @@ async function main() {
       await ensureSchema(pool);
       const insert = await pool
         .request()
-        .input("firstName", sql.NVarChar(100), firstName)
-        .input("lastName", sql.NVarChar(100), lastName)
+        .input("fullName", sql.NVarChar(200), data.fullName)
+        .input("firstName", sql.NVarChar(100), data.fullName)
+        .input("lastName", sql.NVarChar(100), "")
+        .input("isAttending", sql.Bit, data.isAttending)
+        .input("attendeesAbove16", sql.Int, data.attendeesAbove16)
+        .input("attendeesAge6To16", sql.Int, data.attendeesAge6To16)
+        .input("attendeesBelow6", sql.Int, data.attendeesBelow6)
         .query(`
-          INSERT INTO dbo.Users (firstName, lastName)
-          OUTPUT INSERTED.id, INSERTED.firstName, INSERTED.lastName, INSERTED.createdAt
-          VALUES (@firstName, @lastName)
+          INSERT INTO dbo.Users (
+            fullName, firstName, lastName,
+            isAttending, attendeesAbove16, attendeesAge6To16, attendeesBelow6
+          )
+          OUTPUT
+            INSERTED.id,
+            INSERTED.fullName,
+            INSERTED.firstName,
+            INSERTED.lastName,
+            INSERTED.isAttending,
+            INSERTED.attendeesAbove16,
+            INSERTED.attendeesAge6To16,
+            INSERTED.attendeesBelow6,
+            INSERTED.createdAt
+          VALUES (
+            @fullName, @firstName, @lastName,
+            @isAttending, @attendeesAbove16, @attendeesAge6To16, @attendeesBelow6
+          )
         `);
       res.status(201).json(insert.recordset[0]);
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "Failed to create user" });
+      res.status(500).json({ error: "Failed to create registration" });
     }
   });
 
