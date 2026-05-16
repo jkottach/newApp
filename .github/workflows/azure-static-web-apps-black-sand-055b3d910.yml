@@ -32,6 +32,13 @@ jobs:
                const coredemo = require('@actions/core')
                return await coredemo.getIDToken()
            result-encoding: string
+      - name: Point frontend at production API
+        run: |
+          API_URL="${{ secrets.BACKEND_PUBLIC_URL }}"
+          if [ -z "$API_URL" ]; then
+            API_URL="https://kanhansbackend-ftgyfkgnctc7h5fz.centralus-01.azurewebsites.net"
+          fi
+          echo "window.__API_BASE__='${API_URL}';" > frontend/env-config.js
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
