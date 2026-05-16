@@ -93,6 +93,30 @@ body {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
+.banner-details {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.banner-when,
+.banner-where {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--gold-soft);
+}
+
+.banner-when {
+  font-weight: 600;
+}
+
+.banner-where {
+  margin-top: 0.35rem;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
 /* —— Layout —— */
 .app {
   max-width: 28rem;
