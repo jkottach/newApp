@@ -61,7 +61,7 @@ function buildCorsOptions() {
       }
       cb(null, false);
     },
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   };
 }
@@ -99,12 +99,33 @@ async function ensureSchema(pool) {
 
 function formatRegistration(row) {
   return {
+    id: row.id,
     fullName: row.fullName,
     isAttending: !!row.isAttending,
     attendeesAbove16: row.attendeesAbove16,
     attendeesAge6To16: row.attendeesAge6To16,
     attendeesBelow6: row.attendeesBelow6,
   };
+}
+
+function parseUserId(req) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return null;
+  return id;
+}
+
+async function fetchUserById(pool, id) {
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .query(`
+      SELECT
+        id, fullName, isAttending,
+        attendeesAbove16, attendeesAge6To16, attendeesBelow6
+      FROM dbo.Users
+      WHERE id = @id
+    `);
+  return result.recordset[0] || null;
 }
 
 function parseNonNegativeInt(value, fieldName) {
@@ -157,6 +178,7 @@ function parseRegistrationBody(body) {
 
 const USER_SELECT = `
   SELECT
+    id,
     fullName,
     isAttending,
     attendeesAbove16,
@@ -188,6 +210,79 @@ async function main() {
     }
   });
 
+  app.get("/api/users/:id", async (req, res) => {
+    const id = parseUserId(req);
+    if (!id) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    try {
+      const pool = await getPool();
+      await ensureSchema(pool);
+      const row = await fetchUserById(pool, id);
+      if (!row) {
+        res.status(404).json({ error: "Registration not found" });
+        return;
+      }
+      res.json(formatRegistration(row));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to load registration" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    const id = parseUserId(req);
+    if (!id) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    let data;
+    try {
+      data = parseRegistrationBody(req.body);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    try {
+      const pool = await getPool();
+      await ensureSchema(pool);
+      const result = await pool
+        .request()
+        .input("id", sql.Int, id)
+        .input("fullName", sql.NVarChar(200), data.fullName)
+        .input("isAttending", sql.Bit, data.isAttending)
+        .input("attendeesAbove16", sql.Int, data.attendeesAbove16)
+        .input("attendeesAge6To16", sql.Int, data.attendeesAge6To16)
+        .input("attendeesBelow6", sql.Int, data.attendeesBelow6)
+        .query(`
+          UPDATE dbo.Users
+          SET
+            fullName = @fullName,
+            isAttending = @isAttending,
+            attendeesAbove16 = @attendeesAbove16,
+            attendeesAge6To16 = @attendeesAge6To16,
+            attendeesBelow6 = @attendeesBelow6
+          OUTPUT
+            INSERTED.id,
+            INSERTED.fullName,
+            INSERTED.isAttending,
+            INSERTED.attendeesAbove16,
+            INSERTED.attendeesAge6To16,
+            INSERTED.attendeesBelow6
+          WHERE id = @id
+        `);
+      if (!result.recordset.length) {
+        res.status(404).json({ error: "Registration not found" });
+        return;
+      }
+      res.json(formatRegistration(result.recordset[0]));
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to update registration" });
+    }
+  });
+
   app.post("/api/users", async (req, res) => {
     let data;
     try {
@@ -211,6 +306,7 @@ async function main() {
             fullName, isAttending, attendeesAbove16, attendeesAge6To16, attendeesBelow6
           )
           OUTPUT
+            INSERTED.id,
             INSERTED.fullName,
             INSERTED.isAttending,
             INSERTED.attendeesAbove16,

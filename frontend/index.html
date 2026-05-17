@@ -76,7 +76,7 @@
         <div class="list-head">
           <div>
             <h2 id="list-heading" class="section-title">Responses</h2>
-            <p class="section-lede">Everyone who has submitted an RSVP.</p>
+            <p class="section-lede">Tap a name to view or update an RSVP.</p>
           </div>
           <span id="count" class="badge" aria-live="polite"></span>
         </div>
@@ -84,6 +84,60 @@
         <ul id="user-list" class="user-list" aria-live="polite"></ul>
       </section>
     </main>
+
+    <div id="edit-modal" class="modal" hidden aria-hidden="true">
+      <button type="button" class="modal-backdrop" aria-label="Close" data-modal-close></button>
+      <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+        <div class="modal-handle" aria-hidden="true"></div>
+        <header class="modal-header">
+          <div>
+            <p class="modal-eyebrow">RSVP details</p>
+            <h2 id="edit-modal-title" class="modal-title">Update response</h2>
+          </div>
+          <button type="button" class="modal-close" aria-label="Close" data-modal-close>&times;</button>
+        </header>
+        <form id="edit-form" class="modal-form" novalidate>
+          <label class="field">
+            <span class="field-label">Your name</span>
+            <input name="fullName" type="text" autocomplete="name" required maxlength="200" />
+          </label>
+          <fieldset class="field fieldset">
+            <legend class="field-label">Are you attending the event?</legend>
+            <div class="choice-row" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="isAttending" value="yes" required />
+                <span>Yes</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="isAttending" value="no" required />
+                <span>No</span>
+              </label>
+            </div>
+          </fieldset>
+          <div id="edit-attendee-counts" class="attendee-panel" hidden>
+            <p class="panel-title">How many will attend?</p>
+            <p class="panel-hint">Include everyone in your family (including yourself).</p>
+            <label class="field">
+              <span class="field-label">Above 10 years</span>
+              <input name="attendeesAbove16" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+            </label>
+            <label class="field">
+              <span class="field-label">Between 5 and 10 years</span>
+              <input name="attendeesAge6To16" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+            </label>
+            <label class="field">
+              <span class="field-label">Below 5 years</span>
+              <input name="attendeesBelow6" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="submit" class="btn btn-primary">Save changes</button>
+            <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          </div>
+          <p id="edit-form-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
 
     <footer class="app-footer">
       <p><small>&copy; 2026 Kanhans. All rights reserved.</small></p>

@@ -19,6 +19,16 @@
   const attendeePanel = document.getElementById("attendee-counts");
   const attendingInputs = form.querySelectorAll('input[name="isAttending"]');
 
+  const modal = document.getElementById("edit-modal");
+  const editForm = document.getElementById("edit-form");
+  const editFormStatus = document.getElementById("edit-form-status");
+  const editAttendeePanel = document.getElementById("edit-attendee-counts");
+  const editModalTitle = document.getElementById("edit-modal-title");
+  const editAttendingInputs = editForm.querySelectorAll('input[name="isAttending"]');
+
+  let usersCache = [];
+  let editingId = null;
+
   function apiUrl(path) {
     const base = apiBase.replace(/\/$/, "");
     return `${base}${path}`;
@@ -51,18 +61,74 @@
     countEl.textContent = String(sumAllAttendees(users));
   }
 
-  function updateAttendeePanel() {
-    const selected = form.querySelector('input[name="isAttending"]:checked');
+  function updateAttendeePanelFor(formEl, panelEl) {
+    const selected = formEl.querySelector('input[name="isAttending"]:checked');
     const show = selected && selected.value === "yes";
-    attendeePanel.hidden = !show;
-    attendeePanel.querySelectorAll("input[type='number']").forEach((el) => {
+    panelEl.hidden = !show;
+    panelEl.querySelectorAll("input[type='number']").forEach((el) => {
       el.required = show;
       if (!show) el.value = "";
     });
   }
 
+  function parseCount(fd, name) {
+    const raw = fd.get(name);
+    const n = raw === "" || raw === null ? 0 : Number(raw);
+    if (!Number.isInteger(n) || n < 0) return null;
+    return n;
+  }
+
+  function buildPayload(fd) {
+    const fullName = String(fd.get("fullName") || "").trim();
+    const attendingChoice = fd.get("isAttending");
+
+    if (!fullName) return { error: "Please enter your name." };
+    if (attendingChoice !== "yes" && attendingChoice !== "no") {
+      return { error: "Please select Yes or No for attending." };
+    }
+
+    const isAttending = attendingChoice === "yes";
+    const payload = { fullName, isAttending };
+
+    if (isAttending) {
+      const attendeesAbove16 = parseCount(fd, "attendeesAbove16");
+      const attendeesAge6To16 = parseCount(fd, "attendeesAge6To16");
+      const attendeesBelow6 = parseCount(fd, "attendeesBelow6");
+      if (
+        attendeesAbove16 === null ||
+        attendeesAge6To16 === null ||
+        attendeesBelow6 === null
+      ) {
+        return { error: "Attendee counts must be whole numbers 0 or greater." };
+      }
+      const total = attendeesAbove16 + attendeesAge6To16 + attendeesBelow6;
+      if (total < 1) {
+        return { error: "Enter at least one attendee in your group." };
+      }
+      payload.attendeesAbove16 = attendeesAbove16;
+      payload.attendeesAge6To16 = attendeesAge6To16;
+      payload.attendeesBelow6 = attendeesBelow6;
+    }
+
+    return { payload };
+  }
+
+  function fillForm(formEl, panelEl, u) {
+    formEl.fullName.value = displayName(u);
+    const attending = isAttendingValue(u);
+    formEl.querySelector(`input[name="isAttending"][value="${attending ? "yes" : "no"}"]`).checked = true;
+    formEl.attendeesAbove16.value = attending ? String(u.attendeesAbove16 ?? 0) : "";
+    formEl.attendeesAge6To16.value = attending ? String(u.attendeesAge6To16 ?? 0) : "";
+    formEl.attendeesBelow6.value = attending ? String(u.attendeesBelow6 ?? 0) : "";
+    updateAttendeePanelFor(formEl, panelEl);
+  }
+
   attendingInputs.forEach((el) => {
-    el.addEventListener("change", updateAttendeePanel);
+    el.addEventListener("change", () => updateAttendeePanelFor(form, attendeePanel));
+  });
+
+  editAttendingInputs.forEach((el) => {
+    el.addEventListener("change", () => updateAttendeePanelFor(editForm, editAttendeePanel));
   });
 
   async function loadUsers() {
@@ -72,7 +138,8 @@
       const res = await fetch(apiUrl("/api/users"));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      renderRows(Array.isArray(data) ? data : []);
+      usersCache = Array.isArray(data) ? data : [];
+      renderRows(usersCache);
     } catch (e) {
       listError.hidden = false;
       const msg = e && e.message ? e.message : String(e);
@@ -90,8 +157,26 @@
 
   function attendanceSummary(u) {
     if (!isAttendingValue(u)) return "Not Attending";
-    const total = totalAttendees(u);
-    return `Attending · ${total}`;
+    return `Attending · ${totalAttendees(u)}`;
+  }
+
+  function openEditModal(user) {
+    editingId = user.id;
+    editModalTitle.textContent = displayName(user);
+    editFormStatus.textContent = "";
+    fillForm(editForm, editAttendeePanel, user);
+    modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    editForm.fullName.focus();
+  }
+
+  function closeEditModal() {
+    editingId = null;
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+    editFormStatus.textContent = "";
   }
 
   function renderRows(users) {
@@ -107,20 +192,31 @@
     for (const u of users) {
       const name = displayName(u);
       const li = document.createElement("li");
-      li.className = "user-card";
       const attending = isAttendingValue(u);
+      li.className = "user-card";
       li.innerHTML = `
-        <span class="user-avatar" aria-hidden="true">${escapeHtml(initialsFromName(name))}</span>
-        <div class="user-card-body">
-          <p class="user-card-name">${escapeHtml(name)}</p>
-          <p class="user-card-meta">
-            <span class="pill ${attending ? "pill-yes" : "pill-no"}">${attending ? "Yes" : "No"}</span>
-            · ${escapeHtml(attendanceSummary(u))}
-          </p>
-        </div>
+        <button type="button" class="user-card-btn" data-id="${escapeHtml(String(u.id))}">
+          <span class="user-avatar" aria-hidden="true">${escapeHtml(initialsFromName(name))}</span>
+          <span class="user-card-body">
+            <span class="user-card-name">${escapeHtml(name)}</span>
+            <span class="user-card-meta">
+              <span class="pill ${attending ? "pill-yes" : "pill-no"}">${attending ? "Yes" : "No"}</span>
+              · ${escapeHtml(attendanceSummary(u))}
+            </span>
+          </span>
+          <span class="user-card-chevron" aria-hidden="true">›</span>
+        </button>
       `;
       listEl.appendChild(li);
     }
+
+    listEl.querySelectorAll(".user-card-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.getAttribute("data-id"));
+        const user = usersCache.find((x) => Number(x.id) === id);
+        if (user) openEditModal(user);
+      });
+    });
   }
 
   function escapeHtml(s) {
@@ -131,59 +227,19 @@
       .replace(/"/g, "&quot;");
   }
 
-  function parseCount(fd, name) {
-    const raw = fd.get(name);
-    const n = raw === "" || raw === null ? 0 : Number(raw);
-    if (!Number.isInteger(n) || n < 0) return null;
-    return n;
-  }
-
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     formStatus.textContent = "";
-    const fd = new FormData(form);
-    const fullName = String(fd.get("fullName") || "").trim();
-    const attendingChoice = fd.get("isAttending");
-
-    if (!fullName) {
-      formStatus.textContent = "Please enter your name.";
+    const built = buildPayload(new FormData(form));
+    if (built.error) {
+      formStatus.textContent = built.error;
       return;
     }
-    if (attendingChoice !== "yes" && attendingChoice !== "no") {
-      formStatus.textContent = "Please select Yes or No for attending.";
-      return;
-    }
-
-    const isAttending = attendingChoice === "yes";
-    const payload = { fullName, isAttending };
-
-    if (isAttending) {
-      const attendeesAbove16 = parseCount(fd, "attendeesAbove16");
-      const attendeesAge6To16 = parseCount(fd, "attendeesAge6To16");
-      const attendeesBelow6 = parseCount(fd, "attendeesBelow6");
-      if (
-        attendeesAbove16 === null ||
-        attendeesAge6To16 === null ||
-        attendeesBelow6 === null
-      ) {
-        formStatus.textContent = "Attendee counts must be whole numbers 0 or greater.";
-        return;
-      }
-      const total = attendeesAbove16 + attendeesAge6To16 + attendeesBelow6;
-      if (total < 1) {
-        formStatus.textContent = "Enter at least one attendee in your group.";
-        return;
-      }
-      payload.attendeesAbove16 = attendeesAbove16;
-      payload.attendeesAge6To16 = attendeesAge6To16;
-      payload.attendeesBelow6 = attendeesBelow6;
-    }
-
     try {
       const res = await fetch(apiUrl("/api/users"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(built.payload),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -191,7 +247,7 @@
         return;
       }
       form.reset();
-      updateAttendeePanel();
+      updateAttendeePanelFor(form, attendeePanel);
       formStatus.textContent = "Submitted. Thank you!";
       await loadUsers();
     } catch (e) {
@@ -201,9 +257,46 @@
     }
   });
 
+  editForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (!editingId) return;
+    editFormStatus.textContent = "";
+    const built = buildPayload(new FormData(editForm));
+    if (built.error) {
+      editFormStatus.textContent = built.error;
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl(`/api/users/${editingId}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(built.payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        editFormStatus.textContent = body.error || `Update failed (${res.status})`;
+        return;
+      }
+      closeEditModal();
+      await loadUsers();
+    } catch (e) {
+      const msg = e && e.message ? e.message : String(e);
+      editFormStatus.textContent = `Request failed (${msg}).`;
+      console.error(e);
+    }
+  });
+
+  modal.querySelectorAll("[data-modal-close]").forEach((el) => {
+    el.addEventListener("click", closeEditModal);
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !modal.hidden) closeEditModal();
+  });
+
   if (!apiBase) {
     formStatus.textContent = "Set window.__API_BASE__ in env-config.js (or deploy with CI).";
   }
-  updateAttendeePanel();
+  updateAttendeePanelFor(form, attendeePanel);
   loadUsers();
 })();
