@@ -59,7 +59,7 @@
     attendeePanel.hidden = !show;
     attendeePanel.querySelectorAll("input[type='number']").forEach((el) => {
       el.required = show;
-      if (!show) el.value = "0";
+      if (!show) el.value = "";
     });
   }
 
