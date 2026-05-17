@@ -86,9 +86,7 @@ async function ensureSchema(pool) {
     BEGIN
       CREATE TABLE dbo.Users (
         id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        firstName NVARCHAR(100) NOT NULL DEFAULT '',
-        lastName NVARCHAR(100) NOT NULL DEFAULT '',
-        fullName NVARCHAR(200) NULL,
+        fullName NVARCHAR(200) NOT NULL,
         isAttending BIT NOT NULL DEFAULT 0,
         attendeesAbove16 INT NOT NULL DEFAULT 0,
         attendeesAge6To16 INT NOT NULL DEFAULT 0,
@@ -107,7 +105,32 @@ async function ensureSchema(pool) {
       ALTER TABLE dbo.Users ADD attendeesAge6To16 INT NOT NULL DEFAULT 0;
     IF COL_LENGTH('dbo.Users', 'attendeesBelow6') IS NULL
       ALTER TABLE dbo.Users ADD attendeesBelow6 INT NOT NULL DEFAULT 0;
+
+    IF COL_LENGTH('dbo.Users', 'firstName') IS NOT NULL
+    BEGIN
+      UPDATE dbo.Users
+      SET fullName = LTRIM(RTRIM(CONCAT(ISNULL(firstName, N''), N' ', ISNULL(lastName, N''))))
+      WHERE fullName IS NULL OR LTRIM(RTRIM(fullName)) = N'';
+      ALTER TABLE dbo.Users DROP COLUMN firstName;
+    END
+
+    IF COL_LENGTH('dbo.Users', 'lastName') IS NOT NULL
+      ALTER TABLE dbo.Users DROP COLUMN lastName;
+
+    UPDATE dbo.Users
+    SET fullName = N'Unknown'
+    WHERE fullName IS NULL OR LTRIM(RTRIM(fullName)) = N'';
   `);
+}
+
+function formatRegistration(row) {
+  return {
+    fullName: row.fullName,
+    isAttending: !!row.isAttending,
+    attendeesAbove16: row.attendeesAbove16,
+    attendeesAge6To16: row.attendeesAge6To16,
+    attendeesBelow6: row.attendeesBelow6,
+  };
 }
 
 function parseNonNegativeInt(value, fieldName) {
@@ -160,15 +183,11 @@ function parseRegistrationBody(body) {
 
 const USER_SELECT = `
   SELECT
-    id,
     fullName,
-    firstName,
-    lastName,
     isAttending,
     attendeesAbove16,
     attendeesAge6To16,
-    attendeesBelow6,
-    createdAt
+    attendeesBelow6
   FROM dbo.Users
   ORDER BY createdAt DESC
 `;
@@ -188,7 +207,7 @@ async function main() {
       const pool = await getPool();
       await ensureSchema(pool);
       const result = await pool.request().query(USER_SELECT);
-      res.json(result.recordset);
+      res.json(result.recordset.map(formatRegistration));
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to load users" });
@@ -209,33 +228,25 @@ async function main() {
       const insert = await pool
         .request()
         .input("fullName", sql.NVarChar(200), data.fullName)
-        .input("firstName", sql.NVarChar(100), data.fullName)
-        .input("lastName", sql.NVarChar(100), "")
         .input("isAttending", sql.Bit, data.isAttending)
         .input("attendeesAbove16", sql.Int, data.attendeesAbove16)
         .input("attendeesAge6To16", sql.Int, data.attendeesAge6To16)
         .input("attendeesBelow6", sql.Int, data.attendeesBelow6)
         .query(`
           INSERT INTO dbo.Users (
-            fullName, firstName, lastName,
-            isAttending, attendeesAbove16, attendeesAge6To16, attendeesBelow6
+            fullName, isAttending, attendeesAbove16, attendeesAge6To16, attendeesBelow6
           )
           OUTPUT
-            INSERTED.id,
             INSERTED.fullName,
-            INSERTED.firstName,
-            INSERTED.lastName,
             INSERTED.isAttending,
             INSERTED.attendeesAbove16,
             INSERTED.attendeesAge6To16,
-            INSERTED.attendeesBelow6,
-            INSERTED.createdAt
+            INSERTED.attendeesBelow6
           VALUES (
-            @fullName, @firstName, @lastName,
-            @isAttending, @attendeesAbove16, @attendeesAge6To16, @attendeesBelow6
+            @fullName, @isAttending, @attendeesAbove16, @attendeesAge6To16, @attendeesBelow6
           )
         `);
-      res.status(201).json(insert.recordset[0]);
+      res.status(201).json(formatRegistration(insert.recordset[0]));
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Failed to create registration" });

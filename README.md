@@ -83,8 +83,8 @@ Do not commit `.env`; it is listed in `.gitignore`.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/health` | Health check `{ "ok": true }` |
-| `GET` | `/api/users` | List users (newest `id` order) |
-| `POST` | `/api/users` | Create user; body: `{ "firstName", "lastName" }` |
+| `GET` | `/api/users` | List RSVPs (newest first); each item: `fullName`, `isAttending`, attendee counts |
+| `POST` | `/api/users` | Create RSVP; body: `{ "fullName", "isAttending", "attendeesAbove16", ... }` |
 
 ## Deploy to Azure
 

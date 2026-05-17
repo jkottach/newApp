@@ -25,9 +25,7 @@
   }
 
   function displayName(u) {
-    const full = String(u.fullName ?? "").trim();
-    if (full) return full;
-    return `${String(u.firstName ?? "").trim()} ${String(u.lastName ?? "").trim()}`.trim();
+    return String(u.fullName ?? "").trim();
   }
 
   function isAttendingValue(u) {
