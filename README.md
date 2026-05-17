@@ -96,17 +96,15 @@ Do not commit `.env`; it is listed in `.gitignore`.
    - `AZURE_WEBAPP_NAME`
    - `AZURE_WEBAPP_PUBLISH_PROFILE`
 
-Pushes to `main` that change `backend/**` run [`.github/workflows/azure-backend.yml`](.github/workflows/azure-backend.yml).
+Pushes to `main` run [`.github/workflows/main_kanhansbackend.yml`](.github/workflows/main_kanhansbackend.yml).
 
 ### Static Web Apps (frontend)
 
 1. Create an Azure Static Web App linked to this repo; set **app location** to `/frontend`.
-2. Add GitHub secrets for the frontend workflow:
-   - `AZURE_STATIC_WEB_APPS_API_TOKEN` (deployment token from the SWA portal)
-   - `BACKEND_PUBLIC_URL` — public API URL with no trailing slash, e.g. `https://your-api.azurewebsites.net`
+2. Optional GitHub secret `BACKEND_PUBLIC_URL` — public API URL with no trailing slash (the SWA workflow has a default if unset).
 3. Ensure `CORS_ORIGINS` on the API includes your Static Web App URL.
 
-Pushes to `main` that change `frontend/**` run [`.github/workflows/azure-frontend.yml`](.github/workflows/azure-frontend.yml). That workflow writes `env-config.js` with `BACKEND_PUBLIC_URL` before deploy.
+Pushes to `main` run [`.github/workflows/azure-static-web-apps-black-sand-055b3d910.yml`](.github/workflows/azure-static-web-apps-black-sand-055b3d910.yml), which sets `env-config.js` before deploy.
 
 ## Project layout
 
