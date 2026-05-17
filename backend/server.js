@@ -80,6 +80,38 @@ async function getPool() {
   return poolPromise;
 }
 
+async function migrateLegacyNameColumns(pool) {
+  const cols = await pool.request().query(`
+    SELECT
+      COL_LENGTH('dbo.Users', 'firstName') AS hasFirst,
+      COL_LENGTH('dbo.Users', 'lastName') AS hasLast
+  `);
+  const hasFirst = cols.recordset[0]?.hasFirst != null;
+  const hasLast = cols.recordset[0]?.hasLast != null;
+  if (!hasFirst && !hasLast) return;
+
+  if (hasFirst && hasLast) {
+    await pool.request().query(`
+      UPDATE dbo.Users
+      SET fullName = LTRIM(RTRIM(CONCAT(ISNULL(firstName, N''), N' ', ISNULL(lastName, N''))))
+      WHERE fullName IS NULL OR LTRIM(RTRIM(fullName)) = N'';
+    `);
+  } else if (hasFirst) {
+    await pool.request().query(`
+      UPDATE dbo.Users
+      SET fullName = LTRIM(RTRIM(firstName))
+      WHERE fullName IS NULL OR LTRIM(RTRIM(fullName)) = N'';
+    `);
+  }
+
+  if (hasFirst) {
+    await pool.request().query(`ALTER TABLE dbo.Users DROP COLUMN firstName`);
+  }
+  if (hasLast) {
+    await pool.request().query(`ALTER TABLE dbo.Users DROP COLUMN lastName`);
+  }
+}
+
 async function ensureSchema(pool) {
   await pool.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
@@ -105,18 +137,11 @@ async function ensureSchema(pool) {
       ALTER TABLE dbo.Users ADD attendeesAge6To16 INT NOT NULL DEFAULT 0;
     IF COL_LENGTH('dbo.Users', 'attendeesBelow6') IS NULL
       ALTER TABLE dbo.Users ADD attendeesBelow6 INT NOT NULL DEFAULT 0;
+  `);
 
-    IF COL_LENGTH('dbo.Users', 'firstName') IS NOT NULL
-    BEGIN
-      UPDATE dbo.Users
-      SET fullName = LTRIM(RTRIM(CONCAT(ISNULL(firstName, N''), N' ', ISNULL(lastName, N''))))
-      WHERE fullName IS NULL OR LTRIM(RTRIM(fullName)) = N'';
-      ALTER TABLE dbo.Users DROP COLUMN firstName;
-    END
+  await migrateLegacyNameColumns(pool);
 
-    IF COL_LENGTH('dbo.Users', 'lastName') IS NOT NULL
-      ALTER TABLE dbo.Users DROP COLUMN lastName;
-
+  await pool.request().query(`
     UPDATE dbo.Users
     SET fullName = N'Unknown'
     WHERE fullName IS NULL OR LTRIM(RTRIM(fullName)) = N'';
