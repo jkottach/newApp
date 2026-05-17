@@ -42,6 +42,17 @@
     );
   }
 
+  function sumAllAttendees(users) {
+    return users.reduce((sum, u) => {
+      if (!isAttendingValue(u)) return sum;
+      return sum + totalAttendees(u);
+    }, 0);
+  }
+
+  function updateCountBadge(users) {
+    countEl.textContent = String(sumAllAttendees(users));
+  }
+
   function updateAttendeePanel() {
     const selected = form.querySelector('input[name="isAttending"]:checked');
     const show = selected && selected.value === "yes";
@@ -80,18 +91,14 @@
   }
 
   function attendanceSummary(u) {
-    if (!isAttendingValue(u)) return "Not attending";
+    if (!isAttendingValue(u)) return "Not Attending";
     const total = totalAttendees(u);
-    const parts = [];
-    if (Number(u.attendeesAbove16) > 0) parts.push(`${u.attendeesAbove16} above 16`);
-    if (Number(u.attendeesAge6To16) > 0) parts.push(`${u.attendeesAge6To16} ages 6–16`);
-    if (Number(u.attendeesBelow6) > 0) parts.push(`${u.attendeesBelow6} below 6`);
-    return `Attending · ${total} total (${parts.join(", ") || "counts not set"})`;
+    return `Attending · ${total}`;
   }
 
   function renderRows(users) {
     listEl.innerHTML = "";
-    countEl.textContent = String(users.length);
+    updateCountBadge(users);
     if (!users.length) {
       const li = document.createElement("li");
       li.className = "user-list-empty";
@@ -112,7 +119,6 @@
             <span class="pill ${attending ? "pill-yes" : "pill-no"}">${attending ? "Yes" : "No"}</span>
             · ${escapeHtml(attendanceSummary(u))}
           </p>
-          <p class="user-card-date">#${escapeHtml(String(u.id))} · ${escapeHtml(formatDate(u.createdAt))}</p>
         </div>
       `;
       listEl.appendChild(li);
@@ -125,13 +131,6 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-  }
-
-  function formatDate(v) {
-    if (!v) return "";
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return String(v);
-    return d.toLocaleString();
   }
 
   function parseCount(fd, name) {
