@@ -7,7 +7,7 @@
     const h = location.hostname;
     const p = location.port;
     if ((h === "localhost" || h === "127.0.0.1") && p === "8080") {
-      apiBase = "http://localhost:3000";
+      apiBase = "http://localhost:7071";
     }
   }
 
@@ -34,9 +34,9 @@
 
   function totalAttendees(u) {
     return (
-      Number(u.attendeesAbove16 || 0) +
-      Number(u.attendeesAge6To16 || 0) +
-      Number(u.attendeesBelow6 || 0)
+      Number(u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0) +
+      Number(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0) +
+      Number(u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)
     );
   }
 
@@ -158,25 +158,25 @@
     const payload = { fullName, isAttending };
 
     if (isAttending) {
-      const attendeesAbove16 = parseCount(fd, "attendeesAbove16");
-      const attendeesAge6To16 = parseCount(fd, "attendeesAge6To16");
-      const attendeesBelow6 = parseCount(fd, "attendeesBelow6");
+      const attendeesAbove10 = parseCount(fd, "attendeesAbove10");
+      const attendeesBetween5And10 = parseCount(fd, "attendeesBetween5And10");
+      const attendeesBelow5 = parseCount(fd, "attendeesBelow5");
       if (
-        attendeesAbove16 === null ||
-        attendeesAge6To16 === null ||
-        attendeesBelow6 === null
+        attendeesAbove10 === null ||
+        attendeesBetween5And10 === null ||
+        attendeesBelow5 === null
       ) {
         formStatus.textContent = "Attendee counts must be whole numbers 0 or greater.";
         return;
       }
-      const total = attendeesAbove16 + attendeesAge6To16 + attendeesBelow6;
+      const total = attendeesAbove10 + attendeesBetween5And10 + attendeesBelow5;
       if (total < 1) {
         formStatus.textContent = "Enter at least one attendee in your group.";
         return;
       }
-      payload.attendeesAbove16 = attendeesAbove16;
-      payload.attendeesAge6To16 = attendeesAge6To16;
-      payload.attendeesBelow6 = attendeesBelow6;
+      payload.attendeesAbove10 = attendeesAbove10;
+      payload.attendeesBetween5And10 = attendeesBetween5And10;
+      payload.attendeesBelow5 = attendeesBelow5;
     }
 
     try {

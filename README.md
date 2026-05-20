@@ -1,125 +1,139 @@
 # Users app
 
-A small full-stack app to add and list users. The frontend is static HTML/CSS/JavaScript; the backend is a Node.js Express API backed by Azure SQL Database. Both are set up to deploy to Azure (Static Web Apps + App Service) via GitHub Actions.
+A small full-stack app to add and list users. The frontend is static HTML/CSS/JavaScript; the API is **Azure Functions** (Node.js) backed by **MongoDB**. Both deploy together via **Azure Static Web Apps** and GitHub Actions.
 
 ## Architecture
 
 ```
-┌─────────────────────┐     HTTPS      ┌──────────────────────┐
-│  Azure Static       │  ───────────►  │  Azure App Service   │
-│  Web Apps (frontend)│   /api/*       │  (Express API)       │
-└─────────────────────┘                └──────────┬───────────┘
-                                                  │
-                                                  ▼
-                                       ┌──────────────────────┐
-                                       │  Azure SQL Database  │
-                                       └──────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Azure Static Web Apps                                      │
+│  ├── static frontend (HTML/CSS/JS)                        │
+│  └── /api/*  →  Azure Functions (Node.js)                   │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │  MongoDB             │
+                    │  (Atlas or self-host)│
+                    └──────────────────────┘
 ```
 
-On first request, the API creates a `dbo.Users` table if it does not exist.
+Documents are stored in the `users` collection (configurable). Each document has `fullName`, `isAttending`, attendee counts, and `createdAt`.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 18 or newer
-- An Azure SQL database (or compatible SQL Server) with a login that can create tables
-- For deployment: Azure App Service, Azure Static Web Apps, and a GitHub repository
+- [Node.js](https://nodejs.org/) 18 or newer (LTS recommended; Azure Functions may warn on very new versions)
+- [Azure Functions Core Tools](https://learn.microsoft.com/azure/azure-functions/functions-run-local) v4 (`func`)
+- A MongoDB database ([MongoDB Atlas](https://www.mongodb.com/cloud/atlas) free tier works)
+- For deployment: Azure Static Web Apps linked to this repo
 
 ## Local development
 
-### 1. Backend
+### 1. API (Azure Functions)
 
 ```bash
-cd backend
-cp .env.example .env
+cd api
+cp local.settings.json.example local.settings.json
 ```
 
-Edit `.env` with your SQL connection details and CORS origins (include `http://localhost:8080` for the static frontend).
+Edit `local.settings.json` → `Values`:
+
+- `MONGODB_URI` — connection string from Atlas (**Database → Connect → Drivers**)
+- `MONGODB_DATABASE` — database name (default `usersapp`)
+- `MONGODB_COLLECTION` — collection name (default `users`)
+- `CORS_ORIGINS` — include `http://localhost:8080` for the static frontend
+
+In Atlas, allow your IP under **Network Access** (or `0.0.0.0/0` for quick local testing).
 
 ```bash
 npm install
 npm run dev
 ```
 
-The API listens on port **3000** by default (`PORT` in `.env`).
+Functions listen on **http://localhost:7071** (`/api/health`, `/api/users`).
 
 ### 2. Frontend
 
-Serve the `frontend` folder on port **8080** so the app can reach the API (see `frontend/app.js` and `frontend/env-config.js`).
+Serve the `frontend` folder on port **8080**:
 
 ```bash
 cd frontend
 npx --yes serve -l 8080
 ```
 
-Open [http://localhost:8080](http://localhost:8080). `env-config.js` sets `window.__API_BASE__` to `http://localhost:3000` for local use.
+Open [http://localhost:8080](http://localhost:8080). `env-config.js` points at `http://localhost:7071`.
+
+**Optional:** run frontend and API together with the Static Web Apps CLI:
+
+```bash
+npx --yes @azure/static-web-apps-cli start ./frontend --api-location ./api --port 8080
+```
+
+Then set `window.__API_BASE__ = ''` in `env-config.js` so requests use the same origin.
 
 In development, the API allows any `localhost` / `127.0.0.1` origin when `NODE_ENV` is not `production`, even if it is not listed in `CORS_ORIGINS`.
 
 ## Environment variables
 
-### Backend (`backend/.env`)
+### API (`api/local.settings.json` → `Values`)
 
 | Variable | Description |
 |----------|-------------|
-| `PORT` | HTTP port (default `3000`) |
-| `NODE_ENV` | Set to `production` on App Service so CORS only allows `CORS_ORIGINS` |
-| `AZURE_SQL_SERVER` | Server host, e.g. `your-server.database.windows.net` |
-| `AZURE_SQL_DATABASE` | Database name |
-| `AZURE_SQL_USER` | SQL login |
-| `AZURE_SQL_PASSWORD` | SQL password |
-| `AZURE_SQL_TRUST_SERVER_CERTIFICATE` | Optional; set to `true` only if needed for local/dev SQL |
-| `CORS_ORIGINS` | Comma-separated allowed origins, e.g. `http://localhost:8080,https://your-app.azurestaticapps.net` |
+| `FUNCTIONS_WORKER_RUNTIME` | Must be `node` |
+| `AzureWebJobsStorage` | Leave empty for local dev; set in Azure for production |
+| `MONGODB_URI` | MongoDB connection string |
+| `MONGODB_DATABASE` | Database name (default `usersapp`) |
+| `MONGODB_COLLECTION` | Collection name (default `users`) |
+| `CORS_ORIGINS` | Comma-separated allowed origins (for local dev with separate ports) |
+| `NODE_ENV` | Set to `production` in Azure so CORS only uses `CORS_ORIGINS` |
 
-Do not commit `.env`; it is listed in `.gitignore`.
+Do not commit `local.settings.json`; it is listed in `.gitignore`.
 
 ### Frontend
 
 | File | Purpose |
 |------|---------|
-| `frontend/env-config.js` | Sets `window.__API_BASE__` to the public API URL. CI overwrites this on deploy. |
+| `frontend/env-config.js` | `window.__API_BASE__` — empty in production (same-origin `/api`), `http://localhost:7071` locally |
 
 ## API
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/health` | Health check `{ "ok": true }` |
-| `GET` | `/api/users` | List RSVPs (newest first); each item: `fullName`, `isAttending`, attendee counts |
-| `POST` | `/api/users` | Create RSVP; body: `{ "fullName", "isAttending", "attendeesAbove16", ... }` |
+| `GET` | `/api/users` | List RSVPs (newest first) |
+| `POST` | `/api/users` | Create RSVP; JSON body with `fullName`, `isAttending`, attendee counts |
 
 ## Deploy to Azure
 
-### App Service (backend)
+### Static Web Apps (frontend + API)
 
-1. Create a Linux App Service app (Node 18+).
-2. In **Configuration → Application settings**, set the same variables as in `.env.example` (especially `AZURE_SQL_*`, `CORS_ORIGINS`, and `NODE_ENV=production`).
-3. Add GitHub secrets for the backend workflow:
-   - `AZURE_WEBAPP_NAME`
-   - `AZURE_WEBAPP_PUBLISH_PROFILE`
+1. Create an Azure Static Web App linked to this repo.
+2. Set **app location** to `/frontend` and **api location** to `/api`.
+3. In the Static Web App → **Configuration → Application settings**, add:
+   - `MONGODB_URI`, `MONGODB_DATABASE`, `MONGODB_COLLECTION`
+   - Optional `CORS_ORIGINS`, `NODE_ENV=production`
+4. In MongoDB Atlas → **Network Access**, allow Azure (or use `0.0.0.0/0` if acceptable for your use case).
 
-Pushes to `main` run [`.github/workflows/main_kanhansbackend.yml`](.github/workflows/main_kanhansbackend.yml).
-
-### Static Web Apps (frontend)
-
-1. Create an Azure Static Web App linked to this repo; set **app location** to `/frontend`.
-2. Optional GitHub secret `BACKEND_PUBLIC_URL` — public API URL with no trailing slash (the SWA workflow has a default if unset).
-3. Ensure `CORS_ORIGINS` on the API includes your Static Web App URL.
-
-Pushes to `main` run [`.github/workflows/azure-static-web-apps-black-sand-055b3d910.yml`](.github/workflows/azure-static-web-apps-black-sand-055b3d910.yml), which sets `env-config.js` before deploy.
+Pushes to `main` run [`.github/workflows/azure-static-web-apps-black-sand-055b3d910.yml`](.github/workflows/azure-static-web-apps-black-sand-055b3d910.yml). Production uses same-origin `/api`.
 
 ## Project layout
 
 ```
-├── backend/
-│   ├── server.js          # Express app and routes
+├── api/
+│   ├── host.json
 │   ├── package.json
-│   └── .env.example
+│   ├── local.settings.json.example
+│   └── src/
+│       ├── index.js
+│       ├── functions/     # HTTP triggers (health, users)
+│       └── shared/        # MongoDB, CORS, validation
 ├── frontend/
 │   ├── index.html
 │   ├── app.js
 │   ├── styles.css
-│   ├── env-config.js      # API base URL (local + CI)
+│   ├── env-config.js
 │   └── staticwebapp.config.json
-└── .github/workflows/     # Azure deploy pipelines
+└── .github/workflows/     # Azure deploy pipeline
 ```
 
 ## License
