@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+      - mongodb-azfunction
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+      - mongodb-azfunction
 
 jobs:
   build_and_deploy_job:
@@ -32,7 +34,7 @@ jobs:
                const coredemo = require('@actions/core')
                return await coredemo.getIDToken()
            result-encoding: string
-      - name: Use same-origin API (Azure Functions via Static Web Apps)
+      - name: Use same-origin API (MongoDB via Static Web Apps Functions)
         run: echo "window.__API_BASE__='';" > frontend/env-config.js
       - name: Build And Deploy
         id: builddeploy
@@ -43,7 +45,7 @@ jobs:
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "./frontend" # App source code path
-          api_location: "./api" # Azure Functions API
+          api_location: "./api"
           output_location: "." # Built app content directory - optional
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######

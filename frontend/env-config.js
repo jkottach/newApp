@@ -1,2 +1,2 @@
-// Overwritten in CI before Static Web Apps deploy. Local: Azure Functions default port.
-window.__API_BASE__ = "http://localhost:7071";
+// Production: empty string → same-origin /api. Local dev overrides in app.js on localhost.
+window.__API_BASE__ = "";

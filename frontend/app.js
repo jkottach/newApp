@@ -1,15 +1,27 @@
 (function () {
-  let apiBase =
-    typeof window !== "undefined" && window.__API_BASE__ !== undefined && window.__API_BASE__ !== null
-      ? String(window.__API_BASE__).trim()
-      : "";
-  if (!apiBase && typeof location !== "undefined") {
-    const h = location.hostname;
-    const p = location.port;
-    if ((h === "localhost" || h === "127.0.0.1") && p === "8080") {
-      apiBase = "http://localhost:7071";
+  function resolveApiBase() {
+    const isLocal =
+      typeof location !== "undefined" &&
+      (location.hostname === "localhost" || location.hostname === "127.0.0.1");
+
+    let base = "";
+    if (typeof window !== "undefined" && window.__API_BASE__ != null) {
+      base = String(window.__API_BASE__).trim();
     }
+
+    // Never call localhost API from a deployed Azure URL.
+    if (base && /localhost|127\.0\.0\.1/i.test(base) && !isLocal) {
+      base = "";
+    }
+
+    if (!base && isLocal) {
+      base = "http://localhost:7071";
+    }
+
+    return base;
   }
+
+  const apiBase = resolveApiBase();
 
   const form = document.getElementById("user-form");
   const formStatus = document.getElementById("form-status");
@@ -149,7 +161,7 @@
     } catch (e) {
       listError.hidden = false;
       const msg = e && e.message ? e.message : String(e);
-      listError.textContent = `Could not load responses (${msg}). Check API URL, CORS, and the API terminal for errors.`;
+      listError.textContent = `Could not load responses (${msg}). Check the API is running and MongoDB is configured.`;
       console.error(e);
     }
   }
@@ -300,9 +312,6 @@
     if (ev.key === "Escape" && !modal.hidden) closeEditModal();
   });
 
-  if (!apiBase) {
-    formStatus.textContent = "Set window.__API_BASE__ in env-config.js (or deploy with CI).";
-  }
   updateAttendeePanelFor(form, attendeePanel);
   loadUsers();
 })();
