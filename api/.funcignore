@@ -1,0 +1,5 @@
+*.js.map
+.git*
+local.settings.json
+test
+node_modules/.bin
