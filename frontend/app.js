@@ -56,17 +56,9 @@
 
   function totalAttendees(u) {
     return (
-      Number(u.attendeesBelow5 ?? u.attendees0to5 ?? u.attendeesBelow6 ?? 0) +
-      Number(
-        u.attendeesBetween5And15 ??
-          u.attendeesBetween5And10 ??
-          u.attendees5to15 ??
-          u.attendeesAge6To16 ??
-          0
-      ) +
-      Number(
-        u.attendeesAbove15 ?? u.attendeesAbove10 ?? u.attendees15Plus ?? u.attendeesAbove16 ?? 0
-      )
+      Number(u.attendeesBelow5 ?? 0) +
+      Number(u.attendeesBetween5And15 ?? 0) +
+      Number(u.attendeesAbove15 ?? 0)
     );
   }
 
@@ -137,23 +129,9 @@
     formEl.fullName.value = displayName(u);
     const attending = isAttendingValue(u);
     formEl.querySelector(`input[name="isAttending"][value="${attending ? "yes" : "no"}"]`).checked = true;
-    formEl.attendeesBelow5.value = attending
-      ? String(u.attendeesBelow5 ?? u.attendees0to5 ?? u.attendeesBelow6 ?? 0)
-      : "";
-    formEl.attendeesBetween5And15.value = attending
-      ? String(
-          u.attendeesBetween5And15 ??
-            u.attendeesBetween5And10 ??
-            u.attendees5to15 ??
-            u.attendeesAge6To16 ??
-            0
-        )
-      : "";
-    formEl.attendeesAbove15.value = attending
-      ? String(
-          u.attendeesAbove15 ?? u.attendeesAbove10 ?? u.attendees15Plus ?? u.attendeesAbove16 ?? 0
-        )
-      : "";
+    formEl.attendeesBelow5.value = attending ? String(u.attendeesBelow5 ?? 0) : "";
+    formEl.attendeesBetween5And15.value = attending ? String(u.attendeesBetween5And15 ?? 0) : "";
+    formEl.attendeesAbove15.value = attending ? String(u.attendeesAbove15 ?? 0) : "";
     updateAttendeePanelFor(formEl, panelEl);
   }
 

@@ -6,15 +6,9 @@ function formatRegistration(row) {
     id,
     fullName: row.fullName,
     isAttending: !!row.isAttending,
-    attendeesBelow5: row.attendeesBelow5 ?? row.attendees0to5 ?? row.attendeesBelow6 ?? 0,
-    attendeesBetween5And15:
-      row.attendeesBetween5And15 ??
-      row.attendeesBetween5And10 ??
-      row.attendees5to15 ??
-      row.attendeesAge6To16 ??
-      0,
-    attendeesAbove15:
-      row.attendeesAbove15 ?? row.attendeesAbove10 ?? row.attendees15Plus ?? row.attendeesAbove16 ?? 0,
+    attendeesBelow5: row.attendeesBelow5 ?? 0,
+    attendeesBetween5And15: row.attendeesBetween5And15 ?? 0,
+    attendeesAbove15: row.attendeesAbove15 ?? 0,
   };
 }
 
@@ -48,18 +42,12 @@ function parseRegistrationBody(body) {
   let attendeesAbove15 = 0;
 
   if (isAttending) {
-    attendeesBelow5 = parseNonNegativeInt(
-      body?.attendeesBelow5 ?? body?.attendees0to5,
-      "attendeesBelow5"
-    );
+    attendeesBelow5 = parseNonNegativeInt(body?.attendeesBelow5, "attendeesBelow5");
     attendeesBetween5And15 = parseNonNegativeInt(
-      body?.attendeesBetween5And15 ?? body?.attendeesBetween5And10 ?? body?.attendees5to15,
+      body?.attendeesBetween5And15,
       "attendeesBetween5And15"
     );
-    attendeesAbove15 = parseNonNegativeInt(
-      body?.attendeesAbove15 ?? body?.attendeesAbove10 ?? body?.attendees15Plus,
-      "attendeesAbove15"
-    );
+    attendeesAbove15 = parseNonNegativeInt(body?.attendeesAbove15, "attendeesAbove15");
     const total = attendeesBelow5 + attendeesBetween5And15 + attendeesAbove15;
     if (total < 1) {
       throw new Error("Enter at least one attendee when attending");
