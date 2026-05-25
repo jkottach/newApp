@@ -56,9 +56,17 @@
 
   function totalAttendees(u) {
     return (
-      Number(u.attendees0to5 ?? u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0) +
-      Number(u.attendees5to15 ?? u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0) +
-      Number(u.attendees15Plus ?? u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0)
+      Number(u.attendeesBelow5 ?? u.attendees0to5 ?? u.attendeesBelow6 ?? 0) +
+      Number(
+        u.attendeesBetween5And15 ??
+          u.attendeesBetween5And10 ??
+          u.attendees5to15 ??
+          u.attendeesAge6To16 ??
+          0
+      ) +
+      Number(
+        u.attendeesAbove15 ?? u.attendeesAbove10 ?? u.attendees15Plus ?? u.attendeesAbove16 ?? 0
+      )
     );
   }
 
@@ -103,19 +111,23 @@
     const payload = { fullName, isAttending };
 
     if (isAttending) {
-      const attendees0to5 = parseCount(fd, "attendees0to5");
-      const attendees5to15 = parseCount(fd, "attendees5to15");
-      const attendees15Plus = parseCount(fd, "attendees15Plus");
-      if (attendees0to5 === null || attendees5to15 === null || attendees15Plus === null) {
+      const attendeesBelow5 = parseCount(fd, "attendeesBelow5");
+      const attendeesBetween5And15 = parseCount(fd, "attendeesBetween5And15");
+      const attendeesAbove15 = parseCount(fd, "attendeesAbove15");
+      if (
+        attendeesBelow5 === null ||
+        attendeesBetween5And15 === null ||
+        attendeesAbove15 === null
+      ) {
         return { error: "Attendee counts must be whole numbers 0 or greater." };
       }
-      const total = attendees0to5 + attendees5to15 + attendees15Plus;
+      const total = attendeesBelow5 + attendeesBetween5And15 + attendeesAbove15;
       if (total < 1) {
         return { error: "Enter at least one attendee in your group." };
       }
-      payload.attendees0to5 = attendees0to5;
-      payload.attendees5to15 = attendees5to15;
-      payload.attendees15Plus = attendees15Plus;
+      payload.attendeesBelow5 = attendeesBelow5;
+      payload.attendeesBetween5And15 = attendeesBetween5And15;
+      payload.attendeesAbove15 = attendeesAbove15;
     }
 
     return { payload };
@@ -125,14 +137,22 @@
     formEl.fullName.value = displayName(u);
     const attending = isAttendingValue(u);
     formEl.querySelector(`input[name="isAttending"][value="${attending ? "yes" : "no"}"]`).checked = true;
-    formEl.attendees0to5.value = attending
-      ? String(u.attendees0to5 ?? u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)
+    formEl.attendeesBelow5.value = attending
+      ? String(u.attendeesBelow5 ?? u.attendees0to5 ?? u.attendeesBelow6 ?? 0)
       : "";
-    formEl.attendees5to15.value = attending
-      ? String(u.attendees5to15 ?? u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0)
+    formEl.attendeesBetween5And15.value = attending
+      ? String(
+          u.attendeesBetween5And15 ??
+            u.attendeesBetween5And10 ??
+            u.attendees5to15 ??
+            u.attendeesAge6To16 ??
+            0
+        )
       : "";
-    formEl.attendees15Plus.value = attending
-      ? String(u.attendees15Plus ?? u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0)
+    formEl.attendeesAbove15.value = attending
+      ? String(
+          u.attendeesAbove15 ?? u.attendeesAbove10 ?? u.attendees15Plus ?? u.attendeesAbove16 ?? 0
+        )
       : "";
     updateAttendeePanelFor(formEl, panelEl);
   }
