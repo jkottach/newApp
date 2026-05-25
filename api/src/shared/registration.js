@@ -6,9 +6,10 @@ function formatRegistration(row) {
     id,
     fullName: row.fullName,
     isAttending: !!row.isAttending,
-    attendeesAbove10: row.attendeesAbove10 ?? row.attendeesAbove16 ?? 0,
-    attendeesBetween5And10: row.attendeesBetween5And10 ?? row.attendeesAge6To16 ?? 0,
-    attendeesBelow5: row.attendeesBelow5 ?? row.attendeesBelow6 ?? 0,
+    attendees0to5: row.attendees0to5 ?? row.attendeesBelow5 ?? row.attendeesBelow6 ?? 0,
+    attendees5to15:
+      row.attendees5to15 ?? row.attendeesBetween5And10 ?? row.attendeesAge6To16 ?? 0,
+    attendees15Plus: row.attendees15Plus ?? row.attendeesAbove10 ?? row.attendeesAbove16 ?? 0,
   };
 }
 
@@ -37,18 +38,24 @@ function parseRegistrationBody(body) {
     throw new Error("isAttending must be yes or no");
   }
 
-  let attendeesAbove10 = 0;
-  let attendeesBetween5And10 = 0;
-  let attendeesBelow5 = 0;
+  let attendees0to5 = 0;
+  let attendees5to15 = 0;
+  let attendees15Plus = 0;
 
   if (isAttending) {
-    attendeesAbove10 = parseNonNegativeInt(body?.attendeesAbove10, "attendeesAbove10");
-    attendeesBetween5And10 = parseNonNegativeInt(
-      body?.attendeesBetween5And10,
-      "attendeesBetween5And10"
+    attendees0to5 = parseNonNegativeInt(
+      body?.attendees0to5 ?? body?.attendeesBelow5,
+      "attendees0to5"
     );
-    attendeesBelow5 = parseNonNegativeInt(body?.attendeesBelow5, "attendeesBelow5");
-    const total = attendeesAbove10 + attendeesBetween5And10 + attendeesBelow5;
+    attendees5to15 = parseNonNegativeInt(
+      body?.attendees5to15 ?? body?.attendeesBetween5And10,
+      "attendees5to15"
+    );
+    attendees15Plus = parseNonNegativeInt(
+      body?.attendees15Plus ?? body?.attendeesAbove10,
+      "attendees15Plus"
+    );
+    const total = attendees0to5 + attendees5to15 + attendees15Plus;
     if (total < 1) {
       throw new Error("Enter at least one attendee when attending");
     }
@@ -57,9 +64,9 @@ function parseRegistrationBody(body) {
   return {
     fullName,
     isAttending,
-    attendeesAbove10,
-    attendeesBetween5And10,
-    attendeesBelow5,
+    attendees0to5,
+    attendees5to15,
+    attendees15Plus,
   };
 }
 

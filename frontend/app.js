@@ -56,9 +56,9 @@
 
   function totalAttendees(u) {
     return (
-      Number(u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0) +
-      Number(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0) +
-      Number(u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)
+      Number(u.attendees0to5 ?? u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0) +
+      Number(u.attendees5to15 ?? u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0) +
+      Number(u.attendees15Plus ?? u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0)
     );
   }
 
@@ -103,23 +103,19 @@
     const payload = { fullName, isAttending };
 
     if (isAttending) {
-      const attendeesAbove10 = parseCount(fd, "attendeesAbove10");
-      const attendeesBetween5And10 = parseCount(fd, "attendeesBetween5And10");
-      const attendeesBelow5 = parseCount(fd, "attendeesBelow5");
-      if (
-        attendeesAbove10 === null ||
-        attendeesBetween5And10 === null ||
-        attendeesBelow5 === null
-      ) {
+      const attendees0to5 = parseCount(fd, "attendees0to5");
+      const attendees5to15 = parseCount(fd, "attendees5to15");
+      const attendees15Plus = parseCount(fd, "attendees15Plus");
+      if (attendees0to5 === null || attendees5to15 === null || attendees15Plus === null) {
         return { error: "Attendee counts must be whole numbers 0 or greater." };
       }
-      const total = attendeesAbove10 + attendeesBetween5And10 + attendeesBelow5;
+      const total = attendees0to5 + attendees5to15 + attendees15Plus;
       if (total < 1) {
         return { error: "Enter at least one attendee in your group." };
       }
-      payload.attendeesAbove10 = attendeesAbove10;
-      payload.attendeesBetween5And10 = attendeesBetween5And10;
-      payload.attendeesBelow5 = attendeesBelow5;
+      payload.attendees0to5 = attendees0to5;
+      payload.attendees5to15 = attendees5to15;
+      payload.attendees15Plus = attendees15Plus;
     }
 
     return { payload };
@@ -129,14 +125,14 @@
     formEl.fullName.value = displayName(u);
     const attending = isAttendingValue(u);
     formEl.querySelector(`input[name="isAttending"][value="${attending ? "yes" : "no"}"]`).checked = true;
-    formEl.attendeesAbove10.value = attending
-      ? String(u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0)
+    formEl.attendees0to5.value = attending
+      ? String(u.attendees0to5 ?? u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)
       : "";
-    formEl.attendeesBetween5And10.value = attending
-      ? String(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0)
+    formEl.attendees5to15.value = attending
+      ? String(u.attendees5to15 ?? u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0)
       : "";
-    formEl.attendeesBelow5.value = attending
-      ? String(u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)
+    formEl.attendees15Plus.value = attending
+      ? String(u.attendees15Plus ?? u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0)
       : "";
     updateAttendeePanelFor(formEl, panelEl);
   }
