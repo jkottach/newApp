@@ -56,8 +56,8 @@
 
   function totalAttendees(u) {
     return (
-      Number(u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0) +
-      Number(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0) +
+      Number(u.attendeesAbove10 ?? u.attendeesAbove16 ?? u.attendeesAbove15 ?? 0) +
+      Number(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? u.attendeesBetween5And15 ?? 0) +
       Number(u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)
     );
   }
@@ -130,10 +130,10 @@
     const attending = isAttendingValue(u);
     formEl.querySelector(`input[name="isAttending"][value="${attending ? "yes" : "no"}"]`).checked = true;
     formEl.attendeesAbove10.value = attending
-      ? String(u.attendeesAbove10 ?? u.attendeesAbove16 ?? 0)
+      ? String(u.attendeesAbove10 ?? u.attendeesAbove16 ?? u.attendeesAbove15 ?? 0)
       : "";
     formEl.attendeesBetween5And10.value = attending
-      ? String(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? 0)
+      ? String(u.attendeesBetween5And10 ?? u.attendeesAge6To16 ?? u.attendeesBetween5And15 ?? 0)
       : "";
     formEl.attendeesBelow5.value = attending
       ? String(u.attendeesBelow5 ?? u.attendeesBelow6 ?? 0)

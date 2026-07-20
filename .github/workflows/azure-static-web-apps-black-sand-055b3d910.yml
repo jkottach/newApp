@@ -3,12 +3,10 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - main
       - mongodb-azfunction
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
-      - main
       - mongodb-azfunction
 
 jobs:
