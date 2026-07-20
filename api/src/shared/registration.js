@@ -6,9 +6,9 @@ function formatRegistration(row) {
     id,
     fullName: row.fullName,
     isAttending: !!row.isAttending,
-    attendeesAbove10: row.attendeesAbove10 ?? row.attendeesAbove16 ?? row.attendeesAbove15 ?? 0,
-    attendeesBetween5And10:
-      row.attendeesBetween5And10 ?? row.attendeesAge6To16 ?? row.attendeesBetween5And15 ?? 0,
+    attendeesAbove15: row.attendeesAbove15 ?? row.attendeesAbove16 ?? row.attendeesAbove10 ?? 0,
+    attendeesBetween5And15:
+      row.attendeesBetween5And15 ?? row.attendeesAge6To16 ?? row.attendeesBetween5And10 ?? 0,
     attendeesBelow5: row.attendeesBelow5 ?? row.attendeesBelow6 ?? 0,
   };
 }
@@ -38,18 +38,21 @@ function parseRegistrationBody(body) {
     throw new Error("isAttending must be yes or no");
   }
 
-  let attendeesAbove10 = 0;
-  let attendeesBetween5And10 = 0;
+  let attendeesAbove15 = 0;
+  let attendeesBetween5And15 = 0;
   let attendeesBelow5 = 0;
 
   if (isAttending) {
-    attendeesAbove10 = parseNonNegativeInt(body?.attendeesAbove10, "attendeesAbove10");
-    attendeesBetween5And10 = parseNonNegativeInt(
-      body?.attendeesBetween5And10,
-      "attendeesBetween5And10"
+    attendeesAbove15 = parseNonNegativeInt(
+      body?.attendeesAbove15 ?? body?.attendeesAbove10,
+      "attendeesAbove15"
+    );
+    attendeesBetween5And15 = parseNonNegativeInt(
+      body?.attendeesBetween5And15 ?? body?.attendeesBetween5And10,
+      "attendeesBetween5And15"
     );
     attendeesBelow5 = parseNonNegativeInt(body?.attendeesBelow5, "attendeesBelow5");
-    const total = attendeesAbove10 + attendeesBetween5And10 + attendeesBelow5;
+    const total = attendeesAbove15 + attendeesBetween5And15 + attendeesBelow5;
     if (total < 1) {
       throw new Error("Enter at least one attendee when attending");
     }
@@ -58,8 +61,8 @@ function parseRegistrationBody(body) {
   return {
     fullName,
     isAttending,
-    attendeesAbove10,
-    attendeesBetween5And10,
+    attendeesAbove15,
+    attendeesBetween5And15,
     attendeesBelow5,
   };
 }
