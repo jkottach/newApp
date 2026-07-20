@@ -6,8 +6,9 @@ function formatRegistration(row) {
     id,
     fullName: row.fullName,
     isAttending: !!row.isAttending,
-    attendeesAbove10: row.attendeesAbove10 ?? row.attendeesAbove16 ?? 0,
-    attendeesBetween5And10: row.attendeesBetween5And10 ?? row.attendeesAge6To16 ?? 0,
+    attendeesAbove10: row.attendeesAbove10 ?? row.attendeesAbove16 ?? row.attendeesAbove15 ?? 0,
+    attendeesBetween5And10:
+      row.attendeesBetween5And10 ?? row.attendeesAge6To16 ?? row.attendeesBetween5And15 ?? 0,
     attendeesBelow5: row.attendeesBelow5 ?? row.attendeesBelow6 ?? 0,
   };
 }
